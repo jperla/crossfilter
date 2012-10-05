@@ -13,6 +13,12 @@
     left: 1024px;
 }
 
+#photos {
+    position: fixed;
+    overflow-y: scroll;
+    height: 800px;
+}
+
 body {
   font-family: "Helvetica Neue";
   width: 900px;
@@ -154,7 +160,7 @@ h1, h2 {
 
 aside {
   position: absolute;
-  left: 240px;
+  left: 200px;
   font-size: larger;
   width: 220px;
 }
@@ -176,7 +182,7 @@ var map;
 var distanceBrush;
 var distanceDimension;
 var distanceChart;
-var renderAll = function() {};
+//var renderAll = function() {};
 
 var updateMap = function(radius, end) {
     // latlng is the point of the zipcode
@@ -189,10 +195,12 @@ var updateMap = function(radius, end) {
         circ.setCenter(loc);
         map.fitBounds(circ.getBounds());
 
+        /*
         // updates markers
         if (end) {
             google.maps.event.trigger(map,'dragend');
         }
+        */
     }
 }
 
@@ -368,7 +376,7 @@ var recalculate = function(flights) {
       .x(d3.scale.linear()
         .domain([0, 50000])
         .rangeRound([0, 10 * 80]))
-        .filter([0, 200]),
+        .filter([0, 250]),
 
     barChart()
         .dimension(date)
@@ -416,7 +424,7 @@ var recalculate = function(flights) {
   }
 
   // Whenever the brush moves, re-rendering everything.
-  renderAll = function() {
+  function renderAll() {
     chart.each(render);
     list.each(render);
     d3.select("#active").text(formatNumber(all.value()));
@@ -734,6 +742,7 @@ $(document).ready(function() {
 </head>
 <body>
 
+<div id="body">
 <h1>Instabrowse</h1>
 
 <h2>Teleport and visualize photos quickly</h2>
@@ -761,9 +770,9 @@ $(document).ready(function() {
 </div>
 
 <div id="right">
-<div id="photos">
-    <aside id="totals"><b><span id="active">-</span></b> of <span id="total">-</span> photos selected.</aside>
+    <aside id="totals"><b><span id="active">-</span></b> of <span id="total">-</span> photos</aside>
 
+<div id="photos">
     <div id="lists">
     <div id="flight-list" class="list"></div>
     </div>
@@ -771,5 +780,6 @@ $(document).ready(function() {
 </div>
 
 
+</body>
 </body>
 </html>
