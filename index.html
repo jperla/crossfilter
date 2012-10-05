@@ -1,20 +1,29 @@
 <!DOCTYPE html>
+<html>
+<head>
 <meta charset="utf-8">
-<title>Crossfilter</title>
+<title>browse instagram</title>
 <style>
 
 @import url(http://fonts.googleapis.com/css?family=Yanone+Kaffeesatz:400,700);
 
+#right {
+    position: fixed;
+    top: 0px;
+    left: 1024px;
+}
+
 body {
   font-family: "Helvetica Neue";
-  margin: 40px auto;
-  width: 960px;
+  width: 900px;
   min-height: 2000px;
 }
 
+/*
 #body {
   position: relative;
 }
+*/
 
 footer {
   padding: 2em 0 1em 0;
@@ -145,50 +154,182 @@ h1, h2 {
 
 aside {
   position: absolute;
-  left: 740px;
-  font-size: smaller;
+  left: 240px;
+  font-size: larger;
   width: 220px;
 }
 
 </style>
 
-<div id="body">
+<script type="text/javascript" src="http://code.jquery.com/jquery.min.js"></script>
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript">
+function getParameterByName(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)')
+                .exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+};
 
-<a href="https://github.com/square"><img src="logotype.png" width="122" height="31"></a>
+var lat = getParameterByName('lat');
+var lng = getParameterByName('lng');
+var map;
+var distanceBrush;
+var distanceDimension;
+var distanceChart;
+var renderAll = function() {};
 
-<h1>Crossfilter</h1>
+var updateMap = function(radius, end) {
+    // latlng is the point of the zipcode
+    var loc = new google.maps.LatLng(lat, lng);
+    var circ = new google.maps.Circle();
 
-<h2>Slice and visualize data quickly</h2>
+    var dis = visibleRadius(map);
+    if (Math.abs(dis - radius) > 100) {
+        circ.setRadius(radius / 2.0);
+        circ.setCenter(loc);
+        map.fitBounds(circ.getBounds());
 
-<div id="charts">
-  <div id="hour-chart" class="chart">
-    <div class="title">Time of Day (Palo Alto time)</div>
-  </div>
-  <div id="delay-chart" class="chart">
-    <div class="title">Employee or not? (0 is not, 10 is yes)</div>
-  </div>
-  <div id="distance-chart" class="chart">
-    <div class="title">Distance (km.)</div>
-  </div>
-  <div id="date-chart" class="chart">
-    <div class="title">Date</div>
-  </div>
-</div>
+        // updates markers
+        if (end) {
+            google.maps.event.trigger(map,'dragend');
+        }
+    }
+}
 
-<aside id="totals"><span id="active">-</span> of <span id="total">-</span> photos selected.</aside>
+var teleport = function() {
 
-<div id="lists">
-  <div id="flight-list" class="list"></div>
-</div>
+  var address = document.getElementById('address').value;
+
+  // Create a new Geocoder
+  var geocoder = new google.maps.Geocoder();
+
+  // Locate the address using the Geocoder.
+  geocoder.geocode( { "address": address }, function(results, status) {
+    // If the Geocoding was successful
+    if (status == google.maps.GeocoderStatus.OK) {
+      var loc = results[0].geometry.location;
+      lat = loc.lat();
+      lng = loc.lng();
+      
+      window.location.assign("/?lat=" + lat + "&lng=" + lng);
+      //setupMap(loc);
+      //recalculate(master_flights);
+    } else {
+      try {
+        alert("Geocode was not successful for the following reason: " + status);
+      } catch(e) {}
+    }
+  });
+  return false;
+};
+
+var visibleRadius = function(map) {
+    bounds = map.getBounds();
+    center = bounds.getCenter();
+    ne = bounds.getNorthEast();
+    // r = radius of the earth in meters
+    var r =  6378100.0;  
+
+    // Convert lat or lng from decimal degrees into radians (divide by 57.2958)
+    var lat1 = center.lat() / 57.2958; 
+    var lon1 = center.lng() / 57.2958;
+    var lat2 = ne.lat() / 57.2958;
+    var lon2 = center.lng() / 57.2958;
+
+    // distance = circle radius from center to Northeast corner of bounds
+    var dis = r * Math.acos(Math.sin(lat1) * Math.sin(lat2) + 
+        Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1));
+    return dis;
+}
+
+var setupMap = function(loc) {
+    var myOptions = {
+        zoom: 16,
+        center: loc,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+    };
+
+    map = new google.maps.Map(document.getElementById("map"), myOptions);
+    // Add a marker at the address.
+    var marker = new google.maps.Marker({
+      map: map,
+      position: loc
+    });
+
+    google.maps.event.addListener(map, 'click', function() {
+        var radius = visibleRadius(map);
+
+        console.log(distanceBrush);
+        console.log(distanceBrush.extent());
+        distanceBrush.extent([distanceBrush.extent()[0], radius]);
+        distanceDimension.filterRange(distanceBrush.extent());
+        distanceChart.filter(distanceBrush.extent());
+        renderAll();
+    });
 
 
-</div>
+    google.maps.event.addListener(map, 'center_changed', function() {
+        // not valid anymore => return to last valid position
+        map.panTo(loc);
+    });
+
+    /*
+    google.maps.event.addListener(map, 'center_changed', function() {
+        bounds = map.getBounds();
+        center = bounds.getCenter();
+        lat = center.lat();
+        lng = center.lng();
+        recalculate(master_flights);
+    });
+    */
+}
+
+$(document).ready(function() {
+    // Create a Google Map at the latitude/longitude returned by the Geocoder.
+    var loc = new google.maps.LatLng(lat, lng);
+
+    setupMap(loc);
+});
+</script>
+
+
+
+
 
 <script src="crossfilter.v1.min.js"></script>
 <script src="d3.v2.min.js"></script>
-<script>
+<script type="text/javascript"><!--
+function calcDist (mC, cC) {
+      var dLatRad = Math.abs(mC[1] - cC[1]) * Math.PI/180;
+      var dLonRad = Math.abs(mC[0] - cC[0]) * Math.PI/180;
+      // Calculate origin in Radians
+      var lat1Rad = mC[1] * Math.PI/180;
+      var lon1Rad = mC[0] * Math.PI/180;
+      // Calculate new point in Radians
+      var lat2Rad = cC[1] * Math.PI/180;
+      var lon2Rad = cC[0] * Math.PI/180;
 
-d3.csv("insta.csv", function(flights) {
+      // Earth's Radius
+      var eR = 6371;
+
+      var d1 = Math.sin(dLatRad/2) * Math.sin(dLatRad/2) +
+         Math.sin(dLonRad/2) * Math.sin(dLonRad/2) * Math.cos(lat1Rad) *
+Math.cos(lat2Rad);
+      var d2 = 2 * Math.atan2(Math.sqrt(d1), Math.sqrt(1-d1));
+
+      return(eR * d2);
+}
+
+var greatArc = d3.geo.greatArc();
+
+var recalculate = function(flights) {
+  var charts_html = '<div id="charts"><div id="distance-chart" class="chart"><div class="title">Distance (m)</div></div><div id="date-chart" class="chart"><div class="title">Date</div></div><div id="hour-chart" class="chart"><div class="title">Time of Day (east coast time)</div></div><div id="delay-chart" class="chart"><div class="title">Cohorts</div></div></div>';
+
+  /* reset charts*/
+  $('#charts').remove();
+  $('#anchor').html('');
+  $('#anchor').html(charts_html);
+
 
   // Various formatters.
   var formatNumber = d3.format(",d"),
@@ -200,12 +341,11 @@ d3.csv("insta.csv", function(flights) {
   var nestByDate = d3.nest()
       .key(function(d) { return d3.time.day(d.date); });
 
-  // A little coercion, since the CSV is untyped.
   flights.forEach(function(d, i) {
-    d.index = i;
-    d.date = parseDate(d.date);
-    d.delay = +d.delay;
-    d.distance = +d.distance;
+    a = [d.lng, d.lat];
+    b = [lng, lat];
+    //d.distance = Math.floor(calcDist(a, b) * 1000);
+    d.distance = Math.floor(greatArc.distance({source: a, target: b}) * 6371 * 1000);
   });
 
   // Create the crossfilter for the relevant dimensions and groups.
@@ -215,12 +355,29 @@ d3.csv("insta.csv", function(flights) {
       dates = date.group(),
       hour = flight.dimension(function(d) { return d.date.getHours() + d.date.getMinutes() / 60; }),
       hours = hour.group(Math.floor),
-      delay = flight.dimension(function(d) { return Math.max(-60, Math.min(149, d.delay)); }),
-      delays = delay.group(function(d) { return Math.floor(d / 10) * 10; }),
-      distance = flight.dimension(function(d) { return Math.min(20000, d.distance); }),
-      distances = distance.group(function(d) { return Math.floor(d / 30) * 30; });
+      delay = flight.dimension(function(d) { return Math.max(-1, Math.min(25, d.delay)); }),
+      delays = delay.group(function(d) { return d; }),
+      distance = flight.dimension(function(d) { return Math.min(50000, d.distance); }),
+      distances = distance.group(function(d) { return Math.floor(d / 10) * 10; });
 
   var charts = [
+
+    barChart()
+        .dimension(distance)
+        .group(distances)
+      .x(d3.scale.linear()
+        .domain([0, 50000])
+        .rangeRound([0, 10 * 80]))
+        .filter([0, 200]),
+
+    barChart()
+        .dimension(date)
+        .group(dates)
+        .round(d3.time.day.round)
+      .x(d3.time.scale()
+        .domain([new Date(2012, 8, 1), new Date(2012, 10, 1)])
+        .rangeRound([0, 10 * 60])),
+        //.filter([new Date(2012, 8, 1), new Date(2012, 10, 1)])
 
     barChart()
         .dimension(hour)
@@ -233,25 +390,8 @@ d3.csv("insta.csv", function(flights) {
         .dimension(delay)
         .group(delays)
       .x(d3.scale.linear()
-        .domain([-10, 20])
-        .rangeRound([0, 10 * 21])),
-
-    barChart()
-        .dimension(distance)
-        .group(distances)
-      .x(d3.scale.linear()
-        .domain([0, 20000])
-        .rangeRound([0, 10 * 100]))
-        .filter([0, 250]),
-
-    barChart()
-        .dimension(date)
-        .group(dates)
-        .round(d3.time.day.round)
-      .x(d3.time.scale()
-        .domain([new Date(2012, 8, 1), new Date(2012, 10, 1)])
-        .rangeRound([0, 10 * 90]))
-        //.filter([new Date(2012, 8, 1), new Date(2012, 10, 1)])
+        .domain([-1, 25])
+        .rangeRound([0, 10 * 25]))
 
   ];
 
@@ -270,28 +410,19 @@ d3.csv("insta.csv", function(flights) {
   d3.selectAll("#total")
       .text(formatNumber(flight.size()));
 
-  renderAll();
-
   // Renders the specified chart or list.
   function render(method) {
     d3.select(this).call(method);
   }
 
   // Whenever the brush moves, re-rendering everything.
-  function renderAll() {
+  renderAll = function() {
     chart.each(render);
     list.each(render);
     d3.select("#active").text(formatNumber(all.value()));
-  }
+  };
 
-  // Like d3.time.format, but faster.
-  function parseDate(d) {
-    return new Date(2012,
-        d.substring(0, 2) - 1,
-        d.substring(2, 4),
-        d.substring(4, 6),
-        d.substring(6, 8));
-  }
+  renderAll();
 
   window.filter = function(filters) {
     filters.forEach(function(d, i) { charts[i].filter(d); });
@@ -330,28 +461,34 @@ d3.csv("insta.csv", function(flights) {
 
       flightEnter.append("div")
           .attr("class", "origin")
-          .append("img")
-          .attr("src", function(d) { return d.origin })
-          .attr("height", '80px');
+          .append("a")
+          .attr("href", function(d) { return '/ulink/' + d.uid})
+            .append("img")
+            .attr("src", function(d) { return '/usrc/' + d.uid})
+            .attr("height", '80px');
 
       flightEnter.append("div")
           .attr("class", "destination")
-          .append("img")
-          .attr("src", function(d) { return d.destination })
-          .attr("height", '150px');
+          .append("a")
+          .attr("href", function(d) { return '/u/' + d.uid + '/link/' + d.pid})
+            .append("img")
+            .attr("src", function(d) { return '/u/' + d.uid + '/src/' + d.pid})
+            .attr("height", '150px');
 
       flightEnter.append("div")
           .attr("class", "distance")
-          .text(function(d) { return formatNumber(d.distance) + " km."; });
+          .append("a")
+          .attr("href", function(d) { return "?lat=" + d.lat + "&lng=" + d.lng})
+            .text(function(d) { return formatNumber(d.distance) + " m."; });
 
       flightEnter.append("div")
           .attr("class", "delay")
           .classed("early", function(d) { return d.delay < 0; })
           .text(function(d) { 
             if (d.delay <= 1) {
-                return "user";
+                return "early";
             } else {
-                return "employee";
+                return "not early";
           }});
 
       flight.exit().remove();
@@ -475,6 +612,13 @@ d3.csv("insta.csv", function(flights) {
     brush.on("brushstart.chart", function() {
       var div = d3.select(this.parentNode.parentNode.parentNode);
       div.select(".title a").style("display", null);
+
+      // hack to grab chart handle
+      if(this.parentNode.parentNode.parentNode.id == 'distance-chart') {
+        distanceBrush = brush;
+        distanceDimension = dimension;
+        distanceChart = chart;
+      }
     });
 
     brush.on("brush.chart", function() {
@@ -488,6 +632,10 @@ d3.csv("insta.csv", function(flights) {
           .attr("x", x(extent[0]))
           .attr("width", x(extent[1]) - x(extent[0]));
       dimension.filterRange(extent);
+
+      if(this.parentNode.parentNode.parentNode.id == 'distance-chart') {
+         updateMap(brush.extent()[1]);
+      }
     });
 
     brush.on("brushend.chart", function() {
@@ -496,6 +644,10 @@ d3.csv("insta.csv", function(flights) {
         div.select(".title a").style("display", "none");
         div.select("#clip-" + id + " rect").attr("x", null).attr("width", "100%");
         dimension.filterAll();
+      }
+
+      if(this.parentNode.parentNode.parentNode.id == 'distance-chart') {
+        updateMap(brush.extent()[1], 1);
       }
     });
 
@@ -551,6 +703,73 @@ d3.csv("insta.csv", function(flights) {
 
     return d3.rebind(chart, brush, "on");
   }
-});
+};
 
-</script>
+var master_flights = null;
+
+$(document).ready(function() {
+    /* entry function */
+    d3.csv("/pics/" + lat + "/" + lng, function(flights) {
+        // Like d3.time.format, but faster.
+        function parseDate(d) {
+            return new Date(2012,
+                d.substring(0, 2) - 1,
+                d.substring(2, 4),
+                d.substring(4, 6),
+                d.substring(6, 8));
+        }
+
+        // A little coercion, since the CSV is untyped.
+        flights.forEach(function(d, i) {
+            d.index = i;
+            d.date = parseDate(d.date);
+            d.delay = +Math.floor(d.uid / 1000000); //+d.delay;
+        });
+
+        master_flights = flights;
+        recalculate(master_flights);
+    });
+});
+--></script>
+</head>
+<body>
+
+<h1>Instabrowse</h1>
+
+<h2>Teleport and visualize photos quickly</h2>
+
+
+<div id="left">
+<form>
+<input type="text" name="address" id="address" style="font-size:large;" /></input>
+<input type="submit" value="Teleport!" onclick="return teleport();" style="font-size:large;"></input>
+</form>
+
+<!-- Placeholder for the Google Map -->
+<div id="map" style="height: 512px;">
+  <noscript>
+    <!-- http://code.google.com/apis/maps/documentation/staticmaps/ -->
+    <img src="http://maps.google.com/maps/api/staticmap?center=1%20hacker%20way&amp;zoom=16&amp;size=512x512&amp;maptype=roadmap&amp;sensor=false" />
+  </noscript>
+</div>
+
+
+<div id="anchor">
+</div>
+
+
+</div>
+
+<div id="right">
+<div id="photos">
+    <aside id="totals"><b><span id="active">-</span></b> of <span id="total">-</span> photos selected.</aside>
+
+    <div id="lists">
+    <div id="flight-list" class="list"></div>
+    </div>
+</div>
+</div>
+
+
+</body>
+</html>
